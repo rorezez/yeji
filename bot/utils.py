@@ -5,6 +5,7 @@ import itertools
 import json
 import logging
 import os
+import re
 
 import telegram
 from telegram import Message, MessageEntity, Update, ChatMember, constants
@@ -76,12 +77,40 @@ def is_group_chat(update: Update) -> bool:
         constants.ChatType.SUPERGROUP
     ]
 
-
 def split_into_chunks(text: str, chunk_size: int = 4096) -> list[str]:
     """
     Splits a string into chunks of a given size.
     """
     return [text[i:i + chunk_size] for i in range(0, len(text), chunk_size)]
+
+def split_into_chunks_nostream(text: str, chunk_size: int = 4096) -> list[str]:
+    """
+    Splits a string into chunks of a given size, keeping Markdown code blocks intact.
+    """
+    chunks = []
+    start = 0
+    
+    for match in re.finditer(r"```.*?```", text, re.DOTALL):
+        code_start, code_end = match.span()
+        
+        # Add the text before the code block, if any
+        pre_code_text = text[start:code_start]
+        while len(pre_code_text) > 0:
+            chunk, pre_code_text = pre_code_text[:chunk_size], pre_code_text[chunk_size:]
+            chunks.append(chunk)
+        
+        # Add the entire code block as one chunk
+        chunks.append(text[code_start:code_end])
+        
+        start = code_end
+    
+    # Add remaining chunks after the last code block
+    remaining_text = text[start:]
+    while len(remaining_text) > 0:
+        chunk, remaining_text = remaining_text[:chunk_size], remaining_text[chunk_size:]
+        chunks.append(chunk)
+    
+    return chunks
 
 
 async def wrap_with_indicator(update: Update, context: CallbackContext, coroutine,
