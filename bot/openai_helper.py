@@ -6,11 +6,7 @@ import os
 import tiktoken
 
 import openai
-
-import requests
 import json
-from datetime import date
-from calendar import monthrange
 
 from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception_type
 
