@@ -125,7 +125,7 @@ async def wrap_with_indicator(update: Update, context: CallbackContext, coroutin
                 update.effective_chat.send_action(chat_action, message_thread_id=get_thread_id(update))
             )
         try:
-            await asyncio.wait_for(asyncio.shield(task), 4.5)
+            await asyncio.wait_for(asyncio.shield(task), 10)
         except asyncio.TimeoutError:
             pass
 

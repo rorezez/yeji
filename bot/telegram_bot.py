@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-
+from datetime import datetime
 from uuid import uuid4
 from telegram import BotCommandScopeAllGroupChats, Update, constants
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, InlineQueryResultArticle
@@ -384,7 +384,8 @@ class ChatGPTTelegramBot:
             f'New message received from user {update.message.from_user.name} (id: {update.message.from_user.id})')
         chat_id = update.effective_chat.id
         user_id = update.message.from_user.id
-        prompt = message_text(update.message)
+        current_time = datetime.now().strftime('%H:%M')
+        prompt = f"{current_time} - {message_text(update.message)}"
         self.last_message[chat_id] = prompt
 
         if is_group_chat(update):
@@ -492,6 +493,7 @@ class ChatGPTTelegramBot:
                         total_tokens = int(tokens)
 
             else:
+                #ini respon misal stream false
                 async def _reply():
                     nonlocal total_tokens
                     response, total_tokens = await self.openai.get_chat_response(chat_id=chat_id, query=prompt)

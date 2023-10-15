@@ -234,7 +234,8 @@ class OpenAIHelper:
                 'frequency_penalty': self.config['frequency_penalty'],
                 'stream': stream
             }
-
+            logging.info("Current conversations:")
+            logging.info(json.dumps(self.conversations, indent=4))
             if self.config['enable_functions']:
                 functions = self.plugin_manager.get_functions_specs()
                 if len(functions) > 0:
@@ -387,7 +388,7 @@ class OpenAIHelper:
         :return: The summary
         """
         messages = [
-            {"role": "assistant", "content": "Summarize this conversation in 700 characters or less"},
+            {"role": "assistant", "content": "rangkum pertanyaan ini dengan singkat padat jelas dalam 700 karakter atau kurang, namun tetap mempertahankan hal penting"},
             {"role": "user", "content": str(conversation)}
         ]
         response = await openai.ChatCompletion.acreate(
