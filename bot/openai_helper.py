@@ -389,7 +389,6 @@ class OpenAIHelper:
         """
         self.conversations[chat_id].append({"role": "system", "content": content})
 
-
     async def __summarise(self, conversation) -> str:
         """
         Summarises the conversation history.

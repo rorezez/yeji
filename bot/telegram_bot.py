@@ -437,8 +437,7 @@ class ChatGPTTelegramBot:
             f'New message received from user {update.message.from_user.name} (id: {update.message.from_user.id})')
         chat_id = update.effective_chat.id
         user_id = update.message.from_user.id
-        current_time = datetime.now().strftime('%H:%M')
-        prompt = f"{current_time} - {message_text(update.message)}"
+        prompt = f"{message_text(update.message)}"
         self.last_message[chat_id] = prompt
 
         if is_group_chat(update):
