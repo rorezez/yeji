@@ -381,6 +381,15 @@ class OpenAIHelper:
         """
         self.conversations[chat_id].append({"role": role, "content": content})
 
+    def add_context(self, chat_id, content):
+        """
+        Adds context to the conversation history.
+        :param chat_id: The chat ID
+        :param content: The content to add as context
+        """
+        self.conversations[chat_id].append({"role": "system", "content": content})
+
+
     async def __summarise(self, conversation) -> str:
         """
         Summarises the conversation history.

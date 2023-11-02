@@ -40,7 +40,8 @@ class ChatGPTTelegramBot:
             BotCommand(command='help', description=localized_text('help_description', bot_language)),
             BotCommand(command='reset', description=localized_text('reset_description', bot_language)),
             BotCommand(command='stats', description=localized_text('stats_description', bot_language)),
-            BotCommand(command='resend', description=localized_text('resend_description', bot_language))
+            BotCommand(command='resend', description=localized_text('resend_description', bot_language)),
+            BotCommand(command='addcontext', description='Tambahkan konteks ke dalam percakapan')
         ]
         # If imaging is enabled, add the "image" command to the list
         if self.config.get('enable_image_generation', False):
@@ -54,7 +55,7 @@ class ChatGPTTelegramBot:
         self.usage = {}
         self.last_message = {}
         self.inline_queries_cache = {}
-
+        
     async def help(self, update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         """
         Shows the help menu.
@@ -250,6 +251,60 @@ class ChatGPTTelegramBot:
 
         await wrap_with_indicator(update, context, _generate, constants.ChatAction.UPLOAD_PHOTO)
 
+    async def handle_edited_message(self, update: Update, context: CallbackContext):
+        try:
+            logging.info(f"Received edited message from chat ID {update.effective_chat.id}")
+
+            chat_id = update.effective_chat.id
+            edited_text = update.edited_message.from_user  # Mengambil teks pesan yang telah diedit
+            current_time = datetime.now().strftime('%H:%M')
+            prompt = f"{current_time} - {edited_text}"
+            logging.debug(f"Update object: {update}")
+            logging.debug(f"Message object: {update.message}")
+
+            logging.debug(f"Edited text: {edited_text}")
+
+            self.last_message[chat_id] = prompt
+            total_tokens = 0
+
+            async def _reply():
+                nonlocal total_tokens  # pastikan variabel ini sudah didefinisikan sebelumnya
+                
+                logging.info("Making request to OpenAI...")
+                response, total_tokens = await self.openai.get_chat_response(chat_id=chat_id, query=prompt)
+                logging.info("Received response from OpenAI")
+
+                # Lanjutkan dengan logika yang sudah ada, misalnya:
+                if is_direct_result(response):
+                    return await handle_direct_result(self.config, update, response)
+
+                # Potong ke chunks jika perlu, dll.
+                chunks = split_into_chunks_nostream(response)
+
+                for index, chunk in enumerate(chunks):
+                    try:
+                        await update.effective_message.reply_text(
+                            message_thread_id=get_thread_id(update),
+                            reply_to_message_id=get_reply_to_message_id(self.config, update) if index == 0 else None,
+                            text=chunk,
+                            parse_mode=constants.ParseMode.MARKDOWN
+                        )
+                    except Exception:
+                        logging.error("Failed to send a chunked message, trying without Markdown")
+                        try:
+                            await update.effective_message.reply_text(
+                                message_thread_id=get_thread_id(update),
+                                reply_to_message_id=get_reply_to_message_id(self.config, update) if index == 0 else None,
+                                text=chunk
+                            )
+                        except Exception as exception:
+                            logging.critical(f"Failed to send the message: {exception}")
+                            raise exception
+
+            await wrap_with_indicator(update, context, _reply, constants.ChatAction.TYPING)
+        except Exception as e:
+            logging.error(f"An error occurred: {e}")
+
     async def transcribe(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         Transcribe audio messages.
@@ -374,8 +429,6 @@ class ChatGPTTelegramBot:
         """
         React to incoming messages and respond accordingly.
         """
-        if update.edited_message or not update.message or update.message.via_bot:
-            return
 
         if not await self.check_allowed_and_within_budget(update, context):
             return
@@ -536,6 +589,21 @@ class ChatGPTTelegramBot:
                 text=f"{localized_text('chat_fail', self.config['bot_language'])} {str(e)}",
                 parse_mode=constants.ParseMode.MARKDOWN
             )
+
+    async def add_context_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Adds context to the conversation using bot command.
+        """
+        chat_id = update.effective_chat.id
+        user_input = message_text(update.message)  # Menggunakan fungsi message_text yang sudah kamu definisikan
+
+        if not user_input:
+            await update.effective_message.reply_text("Tolong sertakan konteks yang ingin ditambahkan.")
+            return
+
+        self.openai.add_context(chat_id, user_input)  # Asumsi openai adalah OpenAIHelper yang sudah ada di class ini
+        
+        await update.effective_message.reply_text("Konteks berhasil ditambahkan! 😊")
 
     async def inline_query(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """
@@ -786,6 +854,7 @@ class ChatGPTTelegramBot:
             .build()
 
         application.add_handler(CommandHandler('reset', self.reset))
+        application.add_handler(CommandHandler('addcontext', self.add_context_command))
         application.add_handler(CommandHandler('help', self.help))
         application.add_handler(CommandHandler('image', self.image))
         application.add_handler(CommandHandler('start', self.help))
@@ -799,6 +868,8 @@ class ChatGPTTelegramBot:
             filters.VIDEO | filters.VIDEO_NOTE | filters.Document.VIDEO,
             self.transcribe))
         application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), self.prompt))
+        edited_message_filter = filters.UpdateType.EDITED_MESSAGE  # Gantikan dengan filter yang sesuai
+        application.add_handler(MessageHandler(edited_message_filter, self.handle_edited_message))
         application.add_handler(InlineQueryHandler(self.inline_query, chat_types=[
             constants.ChatType.GROUP, constants.ChatType.SUPERGROUP, constants.ChatType.PRIVATE
         ]))
