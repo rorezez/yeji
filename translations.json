@@ -350,7 +350,7 @@
         "stats_description": "Mendapatkan statistik penggunaan saat ini",
         "resend_description": "Mengirim kembali pesan terakhir",
         "chat_description": "Berkonversasi dengan bot!",
-        "disallowed": "Maaf, Anda tidak diizinkan menggunakan bot ini. Anda dapat melihat kode sumber di https://github.com/n3d1117/chatgpt-telegram-bot",
+        "disallowed": "Maaf Pintabot sedang mengadakan Beta Test dan, kamu belum di ijinkan untuk pake bot ini, jika kamu termasuk Partisipan dalam Beta Test ini silahkan hubungi https://t.me/rorezez untuk mengakses Pintabot ",
         "budget_limit": "Maaf, Anda telah mencapai batas penggunaan Anda.",
         "help_text": ["Saya adalah bot ChatGPT, obrolan dengan saya!", "Kirimkan pesan suara atau file dan saya akan mentranskripsinya untuk Anda", "Sumber terbuka di https://github.com/n3d1117/chatgpt-telegram-bot"],
         "stats_conversation": ["Percakapan saat ini", "pesan obrolan dalam riwayat", "token obrolan dalam riwayat"],
