@@ -431,6 +431,9 @@ class ChatGPTTelegramBot:
         """
 
         if not await self.check_allowed_and_within_budget(update, context):
+            user_id = update.effective_user.id  # Mengambil user ID dari pengguna yang mengirim pesan
+            admin_chat_id = "5595856929"  # Ganti dengan Chat ID admin yang sebenarnya
+            await context.bot.send_message(chat_id=admin_chat_id, text=f"User baru dengan ID: {user_id}")
             return
 
         logging.info(
