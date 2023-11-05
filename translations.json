@@ -352,7 +352,7 @@
         "chat_description": "Berkonversasi dengan bot!",
         "disallowed": "Maaf Pintabot sedang mengadakan Beta Test dan, kamu belum di ijinkan untuk pake bot ini, jika kamu termasuk Partisipan dalam Beta Test ini silahkan hubungi https://t.me/rorezez untuk mengakses Pintabot",
         "budget_limit": "Maaf, Anda telah mencapai batas penggunaan Anda.",
-        "help_text": ["Hai selamat datang perkenalkan namau Pintabot Silahkan bertanya lewat chat atau pesan suara"],
+        "help_text": "Hai selamat datang perkenalkan namau Pintabot Silahkan bertanya lewat chat atau pesan suara",
         "stats_conversation": ["Percakapan saat ini", "pesan obrolan dalam riwayat", "token obrolan dalam riwayat"],
         "usage_today": "Penggunaan hari ini",
         "usage_month": "Penggunaan bulan ini",
