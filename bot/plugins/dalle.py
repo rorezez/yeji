@@ -21,9 +21,8 @@ class DallePlugin(Plugin):
                 "type": "object",
                 "properties": {
                     "prompt": {"type": "string", "description": "Textual description for the image ,the text must be in english."},
-                    "size": {"type": "string", "description": "Size of the generated image."},
-                    "quality": {"type": "string", "description": "Quality of the generated image."},
-                    "n": {"type": "integer", "description": "Number of images to generate."}
+                    "size": {"type": "string", "description": "The size of the generated images. Must be one of 256x256, 512x512, or 1024x1024"},
+                    "quality": {"type": "string", "description": "Quality of the generated image default standard."}
                 },
                 "required": ["prompt"],
             },
