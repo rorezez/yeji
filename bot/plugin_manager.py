@@ -15,7 +15,7 @@ from plugins.worldtimeapi import WorldTimeApiPlugin
 from plugins.whois_ import WhoisPlugin
 from plugins.webshot import WebshotPlugin
 from plugins.google import GoogleSearchPlugin
-
+from plugins.dalle import DallePlugin
 
 class PluginManager:
     """
@@ -40,6 +40,7 @@ class PluginManager:
             'whois': WhoisPlugin,
             'webshot': WebshotPlugin,
             'google': GoogleSearchPlugin,
+            'dalle': DallePlugin,
         }
         self.plugins = [plugin_mapping[plugin]() for plugin in enabled_plugins if plugin in plugin_mapping]
 
