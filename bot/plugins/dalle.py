@@ -20,7 +20,7 @@ class DallePlugin(Plugin):
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "prompt": {"type": "string", "description": "Textual description for the image."},
+                    "prompt": {"type": "string", "description": "Textual description for the image ,the text must be in english."},
                     "size": {"type": "string", "description": "Size of the generated image."},
                     "quality": {"type": "string", "description": "Quality of the generated image."},
                     "n": {"type": "integer", "description": "Number of images to generate."}
