@@ -350,7 +350,7 @@
         "stats_description": "Mendapatkan statistik penggunaan saat ini",
         "resend_description": "Mengirim kembali pesan terakhir",
         "chat_description": "Berkonversasi dengan bot!",
-        "disallowed": "terimakasih telah berpartisipasi pada Pintabit Beta test, saat ini beta test sudah selesai jika ingin terus menggunakan silahkan hubungi https://t.me/rorezez untuk mengakses Pintabot",
+        "disallowed": "terimakasih telah berpartisipasi pada Pintabot Beta test, saat ini beta test sudah selesai jika ingin terus menggunakan silahkan hubungi https://t.me/rorezez untuk terus mengakses Pintabot dengan gratis",
         "budget_limit": "Maaf, Anda telah mencapai batas penggunaan Anda.",
         "help_text":["Hai namaku Pintabot berikut adalah list command yang bisa kamu pakai, atau kamu juga bisa langsung tanya/ vn untuk memulai", "Silahkan tanyakan hal apapun", "😉"],
         "stats_conversation": ["Percakapan saat ini", "pesan obrolan dalam riwayat", "token obrolan dalam riwayat"],
