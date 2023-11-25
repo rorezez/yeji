@@ -35,6 +35,7 @@ class ChatGPTTelegramBot:
         """
         self.config = config
         self.openai = openai
+        self.assistant_id = self.openai.get_or_create_assistant(name="Pintabot")
         bot_language = self.config['bot_language']
         self.commands = [
             BotCommand(command='help', description=localized_text('help_description', bot_language)),
@@ -550,8 +551,7 @@ class ChatGPTTelegramBot:
             else:
                 #ini respon misal stream false
                 async def _reply():
-                    nonlocal total_tokens
-                    response, total_tokens = await self.openai.get_chat_response(chat_id=chat_id, query=prompt)
+                    response= await self.openai.get_message_from_assistant(chat_id=chat_id, prompt=prompt)
 
                     if is_direct_result(response):
                         return await handle_direct_result(self.config, update, response)
@@ -578,8 +578,9 @@ class ChatGPTTelegramBot:
                                 )
                             except Exception as exception:
                                 raise exception
-
+                logging.info("Starting wrap_with_indicator function")
                 await wrap_with_indicator(update, context, _reply, constants.ChatAction.TYPING)
+                logging.info("Finished wrap_with_indicator function")
 
             add_chat_request_to_usage_tracker(self.usage, self.config, user_id, total_tokens)
 
