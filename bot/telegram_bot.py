@@ -306,6 +306,28 @@ class ChatGPTTelegramBot:
         except Exception as e:
             logging.error(f"An error occurred: {e}")
 
+    async def handle_file(self, update: Update, context: CallbackContext):
+        """handle file yang di kirim user"""
+        if is_group_chat(update) and self.config['ignore_group_transcriptions']:
+            logging.info(f'Transcription coming from group chat, ignoring...')
+            return
+        prompt = f"{message_text(update.message)}"
+        async def _execute():
+            try:
+                user_file = await context.bot.get_file(update.message.effective_attachment.file_id)
+                file_url = user_file.file_path
+                await self.openai.get_file_response(chat_id=update.effective_chat.id, file_url=file_url,)
+            except Exception as e:
+                logging.exception(e)
+                await update.effective_message.reply_text(
+                    message_thread_id=get_thread_id(update),
+                    reply_to_message_id=get_reply_to_message_id(self.config, update),
+                    text=f"{localized_text('file_fail', self.config['bot_language'])}: {str(e)}",
+                    parse_mode=constants.ParseMode.MARKDOWN
+                )
+        await wrap_with_indicator(update, context, _execute, constants.ChatAction.TYPING)
+
+
     async def transcribe(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         Transcribe audio messages.
@@ -551,7 +573,7 @@ class ChatGPTTelegramBot:
             else:
                 #ini respon misal stream false
                 async def _reply():
-                    response= await self.openai.get_message_from_assistant(chat_id=chat_id, prompt=prompt)
+                    response= await self.openai.get_text_response(chat_id=chat_id, prompt=prompt)
 
                     if is_direct_result(response):
                         return await handle_direct_result(self.config, update, response)
@@ -848,6 +870,16 @@ class ChatGPTTelegramBot:
         """
         Runs the bot indefinitely until the user presses Ctrl+C
         """
+        file_extensions = [
+            "c", "cpp", "csv", "docx", "html",
+            "java", "json", "md", "pdf", "php",
+            "pptx", "py", "rb", "tex", "txt",
+            "css", "jpeg", "jpg", "js", "gif",
+            "png", "tar", "ts", "xlsx", "xml", "zip"
+        ]
+        combined_filters = filters.Document.FileExtension(file_extensions[0])
+        for ext in file_extensions[1:]:
+            combined_filters |= filters.Document.FileExtension(ext)
         application = ApplicationBuilder() \
             .token(self.config['token']) \
             .proxy_url(self.config['proxy']) \
@@ -866,6 +898,7 @@ class ChatGPTTelegramBot:
         application.add_handler(CommandHandler(
             'chat', self.prompt, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP)
         )
+        application.add_handler(MessageHandler(combined_filters, self.handle_file))
         application.add_handler(MessageHandler(
             filters.AUDIO | filters.VOICE | filters.Document.AUDIO |
             filters.VIDEO | filters.VIDEO_NOTE | filters.Document.VIDEO,

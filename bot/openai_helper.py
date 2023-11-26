@@ -1,8 +1,11 @@
 import openai
 import time
+import requests
 import logging
 import os
 import json
+import asyncio
+from io import BytesIO
 
 # Load translations
 parent_dir_path = os.path.join(os.path.dirname(__file__), os.pardir)
@@ -65,24 +68,91 @@ class OpenAIHelper:
             self.thread_mapping[chat_id] = thread.id
         return self.thread_mapping[chat_id]
 
-    async def get_message_from_assistant(self, chat_id: int, prompt: str)-> tuple[str, str]:
-        logging.info(f'Getting message from assistant for chat_id {chat_id} with prompt {prompt}')
-        run_id = await self.run_assistant(chat_id=chat_id, query=prompt, assistant_id=self.assistant.id)
-        while True:
-            time.sleep(5)
-            thread_id = self.thread_mapping.get(chat_id)
-            run_status = self.client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run_id)
-            if run_status.status == 'completed':
-                message_list = self.client.beta.threads.messages.list(thread_id=thread_id)
-                for message in message_list.data:
-                    if message.id in self.current_message:
-                        continue
-                    else:
-                        self.current_message.append(message.id)
-                    return message.content[0].text.value
-                break
+    async def get_text_response(self, chat_id: int, prompt: str) -> tuple[str, str]:
+        try:
+            logging.info(f'Getting message from assistant for chat_id {chat_id} with prompt {prompt}')
+            run_id = await self.run_assistant(chat_id=chat_id, query=prompt, assistant_id=self.assistant.id)
+            
+            while True:
+                await asyncio.sleep(5)  # Menggunakan asyncio.sleep alih-alih time.sleep untuk non-blocking sleep
+                thread_id = self.thread_mapping.get(chat_id)
 
-    async def run_assistant(self, chat_id: int, query: str, assistant_id: str = None):
+                try:
+                    run_status = self.client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run_id)
+                    if run_status.status == 'completed':
+                        message_list = self.client.beta.threads.messages.list(thread_id=thread_id)
+                        for message in message_list.data:
+                            if message.id not in self.current_message:
+                                self.current_message.append(message.id)
+                                return message.content[0].text.value
+                        break
+                except Exception as e:
+                    logging.error(f'Error retrieving run status or processing messages: {e}')
+                    # Tangani eksepsi spesifik atau berikan respons ke pengguna
+                    return "", str(e)  # Atau tangani dengan cara lain sesuai kebutuhan
+
+        except Exception as e:
+            logging.error(f'Error in get_message_from_assistant: {e}')
+            # Tangani eksepsi umum atau berikan respons ke pengguna
+            return "", str(e)  # Atau tangani dengan cara lain sesuai kebutuhan
+
+    async def get_file_response(self, chat_id: int, file_url: str) -> tuple[str, str]:
+        try:
+            logging.info(f'Getting message from assistant for chat_id {chat_id} with prompt "rangkum file ini"')
+            run_id = await self.run_assistant(chat_id=chat_id, query="baca dokumen ini", assistant_id=self.assistant.id, file_url=file_url)
+            
+            while True:
+                await asyncio.sleep(5)  # Menggunakan asyncio.sleep alih-alih time.sleep untuk non-blocking sleep
+                thread_id = self.thread_mapping.get(chat_id)
+
+                try:
+                    run_status = self.client.beta.threads.runs.retrieve(thread_id=thread_id, run_id=run_id)
+                    if run_status.status == 'completed':
+                        message_list = self.client.beta.threads.messages.list(thread_id=thread_id)
+                        for message in message_list.data:
+                            if message.id not in self.current_message:
+                                self.current_message.append(message.id)
+                                return message.content[0].text.value
+                        break
+                except Exception as e:
+                    logging.error(f'Error retrieving run status or processing messages: {e}')
+                    # Tangani eksepsi spesifik atau berikan respons ke pengguna
+                    return "", str(e)  # Atau tangani dengan cara lain sesuai kebutuhan
+
+        except Exception as e:
+            logging.error(f'Error in get_message_from_assistant: {e}')
+            # Tangani eksepsi umum atau berikan respons ke pengguna
+            return "", str(e)  # Atau tangani dengan cara lain sesuai kebutuhan    
+
+    async def handle_file(self, chat_id: int, file_url: str, query: str, assistant_id: str = None):
+        response = requests.get(file_url)
+        file = BytesIO(response.content)
+        try:
+            logging.info(f'Handling file for chat_id {chat_id} with file_url {file_url}')
+
+            thread_id = self.thread_mapping.get(chat_id)
+            file_id= self.client.files.create(
+                file=file,
+                purpose="assistants",
+            )
+            self.client.beta.threads.messages.create(
+                thread_id=thread_id,
+                role="user",
+                content=query,
+                file_ids=[file_id.id],
+            )
+            run = self.client.beta.threads.runs.create(
+                thread_id=thread_id,
+                assistant_id=assistant_id,
+            )
+            logging.info(f'Run ID handle file: {run.id}')
+            return run.id
+        except Exception as e:
+            logging.error(f'gagal mengirimkan file: {e}')
+            # Tangani eksepsi umum atau berikan respons ke pengguna
+            return "", str(e)
+
+    async def run_assistant(self, chat_id: int, query: str, assistant_id: str = None ,file_url: str = None):
         logging.info(f'Running assistant for chat_id {chat_id} with query {query}')
         if not query:
             raise ValueError("Query must not be empty")
@@ -91,14 +161,50 @@ class OpenAIHelper:
         thread_id = self.thread_mapping.get(chat_id)
         if not thread_id:
             thread_id = self.create_thread(chat_id)
-        self.client.beta.threads.messages.create(
-            thread_id=thread_id,
-            role="user",
-            content=query,
-        )
-        run = self.client.beta.threads.runs.create(
-            thread_id=thread_id,
-            assistant_id=assistant_id,
-        )
-        logging.info(f'Run ID: {run.id}')
-        return run.id
+    # Cek apakah file_url diberikan
+        if file_url:
+            # Jika ada file_url, panggil handle_file
+            
+            response = requests.get(file_url)
+            file = BytesIO(response.content)
+            try:
+                logging.info(f'Handling file for chat_id {chat_id} with file_url {file_url}')
+
+                thread_id = self.thread_mapping.get(chat_id)
+                file_id= self.client.files.create(
+                    file=file,
+                    purpose="assistants",
+                )
+                self.client.beta.threads.messages.create(
+                    thread_id=thread_id,
+                    role="user",
+                    content=query,
+                    file_ids=[file_id.id],
+                )
+                run = self.client.beta.threads.runs.create(
+                    thread_id=thread_id,
+                    assistant_id=assistant_id,
+                )
+                logging.info(f'Run ID handle file: {run.id}')
+                return run.id
+            except Exception as e:
+                logging.error(f'Error handling file: {e}')
+                # Tangani eksepsi umum atau berikan respons ke pengguna
+                return "", str(e)
+            # Anda dapat menambahkan logika tambahan di sini jika diperlukan
+        else:
+            # Jika tidak ada file_url, lanjutkan seperti biasa
+            thread_id = self.thread_mapping.get(chat_id)
+            if not thread_id:
+                thread_id = self.create_thread(chat_id)
+            self.client.beta.threads.messages.create(
+                thread_id=thread_id,
+                role="user",
+                content=query,
+            )
+            run = self.client.beta.threads.runs.create(
+                thread_id=thread_id,
+                assistant_id=assistant_id,
+            )
+            logging.info(f'Run ID: {run.id}')
+            return run.id
