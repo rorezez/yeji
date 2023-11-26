@@ -311,35 +311,12 @@ class ChatGPTTelegramBot:
         if is_group_chat(update) and self.config['ignore_group_transcriptions']:
             logging.info(f'Transcription coming from group chat, ignoring...')
             return
+
         async def _execute():
             try:
                 user_file = await context.bot.get_file(update.message.effective_attachment.file_id)
                 file_url = user_file.file_path
-                response = await self.openai.get_file_response(chat_id=update.effective_chat.id, file_url=file_url,)
-                if is_direct_result(response):
-                        return await handle_direct_result(self.config, update, response)
-                # Split into chunks of 4096 characters (Telegram's message limit)
-                chunks = split_into_chunks_nostream(response)
-                for index, chunk in enumerate(chunks):
-                        try:
-                            await update.effective_message.reply_text(
-                                message_thread_id=get_thread_id(update),
-                                reply_to_message_id=get_reply_to_message_id(self.config,
-                                                                            update) if index == 0 else None,
-                                text=chunk,
-                                parse_mode=constants.ParseMode.MARKDOWN
-                            )
-                        except Exception:
-                            try:
-                                await update.effective_message.reply_text(
-                                    message_thread_id=get_thread_id(update),
-                                    reply_to_message_id=get_reply_to_message_id(self.config,
-                                                                                update) if index == 0 else None,
-                                    text=chunk
-                                )
-                            except Exception as exception:
-                                raise exception
-
+                await self.openai.get_file_response(chat_id=update.effective_chat.id, file_url=file_url,)
             except Exception as e:
                 logging.exception(e)
                 await update.effective_message.reply_text(
@@ -348,7 +325,7 @@ class ChatGPTTelegramBot:
                     text=f"{localized_text('file_fail', self.config['bot_language'])}: {str(e)}",
                     parse_mode=constants.ParseMode.MARKDOWN
                 )
-            await wrap_with_indicator(update, context, _execute, constants.ChatAction.TYPING)
+        await wrap_with_indicator(update, context, _execute, constants.ChatAction.TYPING)
 
 
     async def transcribe(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
