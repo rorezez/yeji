@@ -339,10 +339,6 @@ class ChatGPTTelegramBot:
                                 )
                             except Exception as exception:
                                 raise exception
-                logging.info("Starting wrap_with_indicator function")
-                await wrap_with_indicator(update, context, _execute, constants.ChatAction.TYPING)
-                logging.info("Finished wrap_with_indicator function")
-
 
             except Exception as e:
                 logging.exception(e)
@@ -352,7 +348,7 @@ class ChatGPTTelegramBot:
                     text=f"{localized_text('file_fail', self.config['bot_language'])}: {str(e)}",
                     parse_mode=constants.ParseMode.MARKDOWN
                 )
-       
+            await wrap_with_indicator(update, context, _execute, constants.ChatAction.TYPING)
 
 
     async def transcribe(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
