@@ -316,7 +316,30 @@ class ChatGPTTelegramBot:
             try:
                 user_file = await context.bot.get_file(update.message.effective_attachment.file_id)
                 file_url = user_file.file_path
-                await self.openai.get_file_response(chat_id=update.effective_chat.id, file_url=file_url,)
+                response = await self.openai.get_file_response(chat_id=update.effective_chat.id, file_url=file_url)
+                chunks = split_into_chunks_nostream(response)
+
+                for index, chunk in enumerate(chunks):
+                    try:
+                        await update.effective_message.reply_text(
+                            message_thread_id=get_thread_id(update),
+                            reply_to_message_id=get_reply_to_message_id(self.config,
+                                                                            update) if index == 0 else None,
+                            text=chunk,
+                             parse_mode=constants.ParseMode.MARKDOWN
+                         )
+                    except Exception:
+                        logging.error("Failed to send a chunked message, trying without Markdown")
+                        try:
+                            await update.effective_message.reply_text(
+                                message_thread_id=get_thread_id(update),
+                                reply_to_message_id=get_reply_to_message_id(self.config,
+                                                                                update) if index == 0 else None,
+                                text=chunk
+                            )
+                        except Exception as exception:
+                            logging.critical(f"Failed to send the message: {exception}")
+                            raise exception
             except Exception as e:
                 logging.exception(e)
                 await update.effective_message.reply_text(
