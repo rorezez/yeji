@@ -40,7 +40,7 @@ class OpenAIHelper:
         self.assistant = None
         self.current_message = []
 
-    def get_or_create_assistant(self, name: str, model: str = "gpt-4-1106-preview"):
+    def get_or_create_assistant(self, name: str, model: str = "gpt-3.5-turbo-1106"):
         logging.info(f'Getting or creating assistant with name {name} and model {model}')
         assistants = self.client.beta.assistants.list().data
         for assistant in assistants:
