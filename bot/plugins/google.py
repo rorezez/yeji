@@ -41,7 +41,8 @@ class GoogleScholarPlugin(Plugin):
                 title = title_element.text if title_element else "No Title"
                 link = title_element['href'] if title_element else "No Link"
                 author_info = pub.find('div', class_='gs_a').text
-                results.append({'title': title, 'author_info': author_info, 'link': link})
+                description = pub.find('div', class_='gs_rs').text if pub.find('div', class_='gs_rs') else "No Description"
+                results.append({'title': title, 'author_info': author_info, 'description': description, 'link': link})
 
             if not results:
                 return {"Result": "No Google Scholar Results were found"}
