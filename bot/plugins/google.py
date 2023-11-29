@@ -36,10 +36,12 @@ class GoogleScholarPlugin(Plugin):
             publications = soup.find_all('div', class_='gs_ri')
 
             results = []
-            for pub in publications[:3]:
-                title = pub.find('h3', class_='gs_rt').text
+            for pub in publications[:3]:  # Memproses hanya 3 hasil pertama
+                title_element = pub.find('h3', class_='gs_rt').find('a', href=True)
+                title = title_element.text if title_element else "No Title"
+                link = title_element['href'] if title_element else "No Link"
                 author_info = pub.find('div', class_='gs_a').text
-                results.append({'title': title, 'author_info': author_info})
+                results.append({'title': title, 'author_info': author_info, 'link': link})
 
             if not results:
                 return {"Result": "No Google Scholar Results were found"}
