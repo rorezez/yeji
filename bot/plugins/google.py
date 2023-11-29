@@ -1,22 +1,18 @@
 import os
+import requests
+from bs4 import BeautifulSoup
 from typing import Dict
-
-from googleapiclient.discovery import build
 
 from .plugin import Plugin
 
-class GoogleSearchPlugin(Plugin):
-    def __init__(self):
-        self.api_key = os.getenv('GOOGLE_API_KEY')  # Ganti dengan variabel lingkungan Anda yang berisi kunci API Google
-        self.cse_id = os.getenv('GOOGLE_CSE_ID')  # Ganti dengan ID Custom Search Engine Anda
-
+class GoogleScholarPlugin(Plugin):
     def get_source_name(self) -> str:
-        return "Google Custom Search"
+        return "Google Scholar"
 
     def get_spec(self) -> [Dict]:
         return [{
-            "name": "web_search",
-            "description": "Execute a web search for the given query and return a list of results",
+            "name": "scholar_search",
+            "description": "Execute a Google Scholar search for the given query and return a list of results",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -30,30 +26,25 @@ class GoogleSearchPlugin(Plugin):
         }]
 
     async def execute(self, function_name, **kwargs) -> Dict:
-        if not self.api_key or not self.cse_id:
-            return {"Result": "Google API Key or CSE ID is not provided"}
-
-        service = build("customsearch", "v1", developerKey=self.api_key)
-
+        query = kwargs.get('query', '').replace(' ', '+')
+        url = f"https://scholar.google.com/scholar?q={query}"
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        
         try:
-            res = service.cse().list(
-                q=kwargs['query'],
-                cx=self.cse_id,
-                num=3  # Mengambil 3 hasil pencarian
-            ).execute()
+            page = requests.get(url, headers=headers)
+            soup = BeautifulSoup(page.content, 'html.parser')
+            publications = soup.find_all('div', class_='gs_ri')
+
+            results = []
+            for pub in publications[:3]:
+                title = pub.find('h3', class_='gs_rt').text
+                author_info = pub.find('div', class_='gs_a').text
+                results.append({'title': title, 'author_info': author_info})
+
+            if not results:
+                return {"Result": "No Google Scholar Results were found"}
+
+            return {"result": results}
+
         except Exception as e:
             return {"Result": str(e)}
-
-        items = res.get('items', [])
-
-        if not items:
-            return {"Result": "No Google Search Result was found"}
-
-        def to_metadata(result):
-            return {
-                "snippet": result["snippet"],
-                "title": result["title"],
-                "link": result["link"],
-            }
-
-        return {"result": [to_metadata(result) for result in items]}

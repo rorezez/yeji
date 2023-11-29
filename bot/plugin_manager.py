@@ -14,7 +14,7 @@ from plugins.deepl import DeeplTranslatePlugin
 from plugins.worldtimeapi import WorldTimeApiPlugin
 from plugins.whois_ import WhoisPlugin
 from plugins.webshot import WebshotPlugin
-from plugins.google import GoogleSearchPlugin
+from plugins.google import GoogleScholarPlugin
 from plugins.dalle import DallePlugin
 
 class PluginManager:
@@ -39,7 +39,7 @@ class PluginManager:
             'gtts_text_to_speech': GTTSTextToSpeech,
             'whois': WhoisPlugin,
             'webshot': WebshotPlugin,
-            'google': GoogleSearchPlugin,
+            'google': GoogleScholarPlugin,
             'dalle': DallePlugin,
         }
         self.plugins = [plugin_mapping[plugin]() for plugin in enabled_plugins if plugin in plugin_mapping]
