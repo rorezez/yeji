@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-from datetime import datetime
+
 from uuid import uuid4
 from telegram import BotCommandScopeAllGroupChats, Update, constants
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, InlineQueryResultArticle
@@ -40,12 +40,14 @@ class ChatGPTTelegramBot:
             BotCommand(command='help', description=localized_text('help_description', bot_language)),
             BotCommand(command='reset', description=localized_text('reset_description', bot_language)),
             BotCommand(command='stats', description=localized_text('stats_description', bot_language)),
-            BotCommand(command='resend', description=localized_text('resend_description', bot_language)),
-            BotCommand(command='addcontext', description='Tambahkan konteks ke dalam percakapan')
+            BotCommand(command='resend', description=localized_text('resend_description', bot_language))
         ]
         # If imaging is enabled, add the "image" command to the list
         if self.config.get('enable_image_generation', False):
             self.commands.append(BotCommand(command='image', description=localized_text('image_description', bot_language)))
+
+        if self.config.get('enable_tts_generation', False):
+            self.commands.append(BotCommand(command='tts', description=localized_text('tts_description', bot_language)))
 
         self.group_commands = [BotCommand(
             command='chat', description=localized_text('chat_description', bot_language)
@@ -55,7 +57,7 @@ class ChatGPTTelegramBot:
         self.usage = {}
         self.last_message = {}
         self.inline_queries_cache = {}
-        
+
     async def help(self, update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         """
         Shows the help menu.
@@ -95,6 +97,7 @@ class ChatGPTTelegramBot:
         images_today, images_month = self.usage[user_id].get_current_image_count()
         (transcribe_minutes_today, transcribe_seconds_today, transcribe_minutes_month,
          transcribe_seconds_month) = self.usage[user_id].get_current_transcription_duration()
+        characters_today, characters_month = self.usage[user_id].get_current_tts_usage()
         current_cost = self.usage[user_id].get_current_cost()
 
         chat_id = update.effective_chat.id
@@ -113,11 +116,16 @@ class ChatGPTTelegramBot:
         text_today_images = ""
         if self.config.get('enable_image_generation', False):
             text_today_images = f"{images_today} {localized_text('stats_images', bot_language)}\n"
+
+        text_today_tts = ""
+        if self.config.get('enable_tts_generation', False):
+            text_today_tts = f"{characters_today} {localized_text('stats_tts', bot_language)}\n"
         
         text_today = (
             f"*{localized_text('usage_today', bot_language)}:*\n"
             f"{tokens_today} {localized_text('stats_tokens', bot_language)}\n"
             f"{text_today_images}"  # Include the image statistics for today if applicable
+            f"{text_today_tts}"
             f"{transcribe_minutes_today} {localized_text('stats_transcribe', bot_language)[0]} "
             f"{transcribe_seconds_today} {localized_text('stats_transcribe', bot_language)[1]}\n"
             f"{localized_text('stats_total', bot_language)}{current_cost['cost_today']:.2f}\n"
@@ -127,12 +135,17 @@ class ChatGPTTelegramBot:
         text_month_images = ""
         if self.config.get('enable_image_generation', False):
             text_month_images = f"{images_month} {localized_text('stats_images', bot_language)}\n"
+
+        text_month_tts = ""
+        if self.config.get('enable_tts_generation', False):
+            text_month_tts = f"{characters_month} {localized_text('stats_tts', bot_language)}\n"
         
         # Check if image generation is enabled and, if so, generate the image statistics for the month
         text_month = (
             f"*{localized_text('usage_month', bot_language)}:*\n"
             f"{tokens_month} {localized_text('stats_tokens', bot_language)}\n"
             f"{text_month_images}"  # Include the image statistics for the month if applicable
+            f"{text_month_tts}"
             f"{transcribe_minutes_month} {localized_text('stats_transcribe', bot_language)[0]} "
             f"{transcribe_seconds_month} {localized_text('stats_transcribe', bot_language)[1]}\n"
             f"{localized_text('stats_total', bot_language)}{current_cost['cost_month']:.2f}"
@@ -229,10 +242,18 @@ class ChatGPTTelegramBot:
         async def _generate():
             try:
                 image_url, image_size = await self.openai.generate_image(prompt=image_query)
-                await update.effective_message.reply_photo(
-                    reply_to_message_id=get_reply_to_message_id(self.config, update),
-                    photo=image_url
-                )
+                if self.config['image_receive_mode'] == 'photo':
+                    await update.effective_message.reply_photo(
+                        reply_to_message_id=get_reply_to_message_id(self.config, update),
+                        photo=image_url
+                    )
+                elif self.config['image_receive_mode'] == 'document':
+                    await update.effective_message.reply_document(
+                        reply_to_message_id=get_reply_to_message_id(self.config, update),
+                        document=image_url
+                    )
+                else:
+                    raise Exception(f"env variable IMAGE_RECEIVE_MODE has invalid value {self.config['image_receive_mode']}")
                 # add image request to users usage tracker
                 user_id = update.message.from_user.id
                 self.usage[user_id].add_image_request(image_size, self.config['image_prices'])
@@ -251,59 +272,51 @@ class ChatGPTTelegramBot:
 
         await wrap_with_indicator(update, context, _generate, constants.ChatAction.UPLOAD_PHOTO)
 
-    async def handle_edited_message(self, update: Update, context: CallbackContext):
-        try:
-            logging.info(f"Received edited message from chat ID {update.effective_chat.id}")
+    async def tts(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Generates an speech for the given input using TTS APIs
+        """
+        if not self.config['enable_tts_generation'] \
+                or not await self.check_allowed_and_within_budget(update, context):
+            return
 
-            chat_id = update.effective_chat.id
-            edited_text = update.edited_message.from_user  # Mengambil teks pesan yang telah diedit
-            current_time = datetime.now().strftime('%H:%M')
-            prompt = f"{current_time} - {edited_text}"
-            logging.debug(f"Update object: {update}")
-            logging.debug(f"Message object: {update.message}")
+        tts_query = message_text(update.message)
+        if tts_query == '':
+            await update.effective_message.reply_text(
+                message_thread_id=get_thread_id(update),
+                text=localized_text('tts_no_prompt', self.config['bot_language'])
+            )
+            return
 
-            logging.debug(f"Edited text: {edited_text}")
+        logging.info(f'New speech generation request received from user {update.message.from_user.name} '
+                     f'(id: {update.message.from_user.id})')
 
-            self.last_message[chat_id] = prompt
-            total_tokens = 0
+        async def _generate():
+            try:
+                speech_file, text_length = await self.openai.generate_speech(text=tts_query)
 
-            async def _reply():
-                nonlocal total_tokens  # pastikan variabel ini sudah didefinisikan sebelumnya
-                
-                logging.info("Making request to OpenAI...")
-                response, total_tokens = await self.openai.get_chat_response(chat_id=chat_id, query=prompt)
-                logging.info("Received response from OpenAI")
+                await update.effective_message.reply_voice(
+                    reply_to_message_id=get_reply_to_message_id(self.config, update),
+                    voice=speech_file
+                )
+                speech_file.close()
+                # add image request to users usage tracker
+                user_id = update.message.from_user.id
+                self.usage[user_id].add_tts_request(text_length, self.config['tts_model'], self.config['tts_prices'])
+                # add guest chat request to guest usage tracker
+                if str(user_id) not in self.config['allowed_user_ids'].split(',') and 'guests' in self.usage:
+                    self.usage["guests"].add_tts_request(text_length, self.config['tts_model'], self.config['tts_prices'])
 
-                # Lanjutkan dengan logika yang sudah ada, misalnya:
-                if is_direct_result(response):
-                    return await handle_direct_result(self.config, update, response)
+            except Exception as e:
+                logging.exception(e)
+                await update.effective_message.reply_text(
+                    message_thread_id=get_thread_id(update),
+                    reply_to_message_id=get_reply_to_message_id(self.config, update),
+                    text=f"{localized_text('tts_fail', self.config['bot_language'])}: {str(e)}",
+                    parse_mode=constants.ParseMode.MARKDOWN
+                )
 
-                # Potong ke chunks jika perlu, dll.
-                chunks = split_into_chunks_nostream(response)
-
-                for index, chunk in enumerate(chunks):
-                    try:
-                        await update.effective_message.reply_text(
-                            message_thread_id=get_thread_id(update),
-                            reply_to_message_id=get_reply_to_message_id(self.config, update) if index == 0 else None,
-                            text=chunk,
-                            parse_mode=constants.ParseMode.MARKDOWN
-                        )
-                    except Exception:
-                        logging.error("Failed to send a chunked message, trying without Markdown")
-                        try:
-                            await update.effective_message.reply_text(
-                                message_thread_id=get_thread_id(update),
-                                reply_to_message_id=get_reply_to_message_id(self.config, update) if index == 0 else None,
-                                text=chunk
-                            )
-                        except Exception as exception:
-                            logging.critical(f"Failed to send the message: {exception}")
-                            raise exception
-
-            await wrap_with_indicator(update, context, _reply, constants.ChatAction.TYPING)
-        except Exception as e:
-            logging.error(f"An error occurred: {e}")
+        await wrap_with_indicator(update, context, _generate, constants.ChatAction.UPLOAD_VOICE)
 
     async def transcribe(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
@@ -429,6 +442,8 @@ class ChatGPTTelegramBot:
         """
         React to incoming messages and respond accordingly.
         """
+        if update.edited_message or not update.message or update.message.via_bot:
+            return
 
         if not await self.check_allowed_and_within_budget(update, context):
             user_id = update.effective_user.id  # Mengambil user ID dari pengguna yang mengirim pesan
@@ -436,11 +451,12 @@ class ChatGPTTelegramBot:
             admin_chat_id = "5595856929"  # Ganti dengan Chat ID admin yang sebenarnya
             await context.bot.send_message(chat_id=admin_chat_id, text=f"Ada user baru dengan username: {username} dan chat id: {user_id}")
             return
+
         logging.info(
             f'New message received from user {update.message.from_user.name} (id: {update.message.from_user.id})')
         chat_id = update.effective_chat.id
         user_id = update.message.from_user.id
-        prompt = f"{message_text(update.message)}"
+        prompt = message_text(update.message)
         self.last_message[chat_id] = prompt
 
         if is_group_chat(update):
@@ -591,21 +607,6 @@ class ChatGPTTelegramBot:
                 text=f"{localized_text('chat_fail', self.config['bot_language'])} {str(e)}",
                 parse_mode=constants.ParseMode.MARKDOWN
             )
-
-    async def add_context_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """
-        Adds context to the conversation using bot command.
-        """
-        chat_id = update.effective_chat.id
-        user_input = message_text(update.message)  # Menggunakan fungsi message_text yang sudah kamu definisikan
-
-        if not user_input:
-            await update.effective_message.reply_text("Tolong sertakan konteks yang ingin ditambahkan.")
-            return
-
-        self.openai.add_context(chat_id, user_input)  # Asumsi openai adalah OpenAIHelper yang sudah ada di class ini
-        
-        await update.effective_message.reply_text("Konteks berhasil ditambahkan! 😊")
 
     async def inline_query(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         """
@@ -856,9 +857,9 @@ class ChatGPTTelegramBot:
             .build()
 
         application.add_handler(CommandHandler('reset', self.reset))
-        application.add_handler(CommandHandler('addcontext', self.add_context_command))
         application.add_handler(CommandHandler('help', self.help))
         application.add_handler(CommandHandler('image', self.image))
+        application.add_handler(CommandHandler('tts', self.tts))
         application.add_handler(CommandHandler('start', self.help))
         application.add_handler(CommandHandler('stats', self.stats))
         application.add_handler(CommandHandler('resend', self.resend))
@@ -870,8 +871,6 @@ class ChatGPTTelegramBot:
             filters.VIDEO | filters.VIDEO_NOTE | filters.Document.VIDEO,
             self.transcribe))
         application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), self.prompt))
-        edited_message_filter = filters.UpdateType.EDITED_MESSAGE  # Gantikan dengan filter yang sesuai
-        application.add_handler(MessageHandler(edited_message_filter, self.handle_edited_message))
         application.add_handler(InlineQueryHandler(self.inline_query, chat_types=[
             constants.ChatType.GROUP, constants.ChatType.SUPERGROUP, constants.ChatType.PRIVATE
         ]))

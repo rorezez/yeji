@@ -77,6 +77,7 @@ def is_group_chat(update: Update) -> bool:
         constants.ChatType.SUPERGROUP
     ]
 
+
 def split_into_chunks(text: str, chunk_size: int = 4096) -> list[str]:
     """
     Splits a string into chunks of a given size.
