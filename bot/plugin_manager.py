@@ -16,6 +16,7 @@ from plugins.whois_ import WhoisPlugin
 from plugins.webshot import WebshotPlugin
 from plugins.google import GoogleScholarPlugin
 from plugins.dalle import DallePlugin
+from plugins.ggl_search import GoogleCustomSearchPlugin
 
 class PluginManager:
     """
@@ -41,6 +42,7 @@ class PluginManager:
             'webshot': WebshotPlugin,
             'google': GoogleScholarPlugin,
             'dalle': DallePlugin,
+            'ggl_search': GoogleCustomSearchPlugin,
         }
         self.plugins = [plugin_mapping[plugin]() for plugin in enabled_plugins if plugin in plugin_mapping]
 
