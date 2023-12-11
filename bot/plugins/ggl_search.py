@@ -9,8 +9,8 @@ class GoogleCustomSearchPlugin(Plugin):
     """
 
     def __init__(self):
-        self.api_key = 'AIzaSyCK9VyUXfPHlDHHdiaMeCRroUIIHEVkS8k'
-        self.cse_id = '977c039b858444053'
+        self.api_key = os.getenv('GOOGLE_API_KEY')
+        self.cse_id = os.getenv('GOOGLE_CSE_ID')
 
     def get_source_name(self) -> str:
         return "Google"
