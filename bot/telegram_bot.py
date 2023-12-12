@@ -11,7 +11,6 @@ from telegram import InputTextMessageContent, BotCommand
 from telegram.error import RetryAfter, TimedOut
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, \
     filters, InlineQueryHandler, CallbackQueryHandler, Application, ContextTypes, CallbackContext
-from telegram.ext.filters import filters
 
 from pydub import AudioSegment
 
