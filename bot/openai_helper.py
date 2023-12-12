@@ -158,7 +158,7 @@ class OpenAIHelper:
 
         return answer, response.usage.total_tokens
 
-    async def get_chat_response_stream(self, chat_id: int, query: str):
+    async def get_chat_response_stream(self, chat_id: int, query: str, image_url=None) -> tuple[str, str]:
         """
         Stream response from the GPT model.
         :param chat_id: The chat ID
@@ -166,7 +166,7 @@ class OpenAIHelper:
         :return: The answer from the model and the number of tokens used, or 'not_finished'
         """
         plugins_used = ()
-        response = await self.__common_get_chat_response(chat_id, query, stream=True)
+        response = await self.__common_get_chat_response(chat_id, query, stream=True, image_url=image_url)
         if self.config['enable_functions']:
             response, plugins_used = await self.__handle_function_call(chat_id, response, stream=True)
             if is_direct_result(response):
@@ -202,7 +202,7 @@ class OpenAIHelper:
         wait=wait_fixed(20),
         stop=stop_after_attempt(3)
     )
-    async def __common_get_chat_response(self, chat_id: int, query: str, stream=False):
+    async def __common_get_chat_response(self, chat_id: int, query: str, stream=False, image_url=None):
         """
         Request a response from the GPT model.
         :param chat_id: The chat ID
@@ -216,7 +216,11 @@ class OpenAIHelper:
 
             self.last_updated[chat_id] = datetime.datetime.now()
 
-            self.__add_to_history(chat_id, role="user", content=query)
+            if not image_url:
+                self.__add_to_history(chat_id, role="user", content=query)
+            else:
+                # Jika ada image_url, tambahkan URL saja ke riwayat
+                self.__add_url_to_history(chat_id, role="user",text=query, image_url=image_url)
 
             # Summarize the chat history if it's too long to avoid excessive token usage
             token_count = self.__count_tokens(self.conversations[chat_id])
@@ -415,6 +419,21 @@ class OpenAIHelper:
         """
         self.conversations[chat_id].append({"role": role, "content": content})
 
+    def __add_url_to_history(self, chat_id, role, text, image_url):
+        """
+        Adds a message with text and image URL to the conversation history.
+        :param chat_id: The chat ID
+        :param role: The role of the message sender
+        :param text: The text content of the message
+        :param image_url: The URL of the image
+        """
+        message_content = [
+            {"type": "text", "text": text},
+            {"type": "image_url", "image_url": {"url": image_url}}
+        ]
+        self.conversations[chat_id].append({"role": role, "content": message_content})
+
+
     async def __summarise(self, conversation) -> str:
         """
         Summarises the conversation history.
@@ -462,22 +481,36 @@ class OpenAIHelper:
             encoding = tiktoken.get_encoding("gpt-3.5-turbo")
 
         if model in GPT_3_MODELS + GPT_3_16K_MODELS:
-            tokens_per_message = 4  # every message follows <|start|>{role/name}\n{content}<|end|>\n
+            tokens_per_message = 4  # every message follows {role/name}\n{content}\n
             tokens_per_name = -1  # if there's a name, the role is omitted
         elif model in GPT_4_MODELS + GPT_4_32K_MODELS + GPT_4_128K_MODELS:
             tokens_per_message = 3
             tokens_per_name = 1
         else:
             raise NotImplementedError(f"""num_tokens_from_messages() is not implemented for model {model}.""")
+
         num_tokens = 0
         for message in messages:
             num_tokens += tokens_per_message
             for key, value in message.items():
-                num_tokens += len(encoding.encode(value))
-                if key == "name":
+                if key == "content":
+                    # Handle content which might be a list (text and image URL)
+                    if isinstance(value, list):
+                        for item in value:
+                            if item['type'] == 'text':
+                                num_tokens += len(encoding.encode(item['text']))
+                    else:
+                        # If it's not a list, assume it's a regular string
+                        num_tokens += len(encoding.encode(value))
+                elif key == "name":
                     num_tokens += tokens_per_name
-        num_tokens += 3  # every reply is primed with <|start|>assistant<|message|>
+                else:
+                    # Encode other keys like normal
+                    num_tokens += len(encoding.encode(value))
+                    
+        num_tokens += 3  # every reply is primed with assistant
         return num_tokens
+
 
     # No longer works as of July 21st 2023, as OpenAI has removed the billing API
     # def get_billing_current_month(self):

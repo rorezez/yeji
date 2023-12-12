@@ -452,6 +452,13 @@ class ChatGPTTelegramBot:
             await context.bot.send_message(chat_id=admin_chat_id, text=f"Ada user baru dengan username: {username} dan chat id: {user_id}")
             return
 
+        if update.message.photo:
+            largest_photo = max(update.message.photo, key=lambda p: p.file_size)
+            photo_file = await context.bot.get_file(largest_photo.file_id)
+            photo_url = photo_file.file_path
+            logging.info(f'Photo URL: {photo_url}')
+
+
         logging.info(
             f'New message received from user {update.message.from_user.name} (id: {update.message.from_user.id})')
         chat_id = update.effective_chat.id
@@ -486,7 +493,7 @@ class ChatGPTTelegramBot:
                     message_thread_id=get_thread_id(update)
                 )
 
-                stream_response = self.openai.get_chat_response_stream(chat_id=chat_id, query=prompt)
+                stream_response = self.openai.get_chat_response_stream(chat_id=chat_id, query=prompt, image_url=photo_url)
                 i = 0
                 prev = ''
                 sent_message = None
@@ -863,14 +870,12 @@ class ChatGPTTelegramBot:
         application.add_handler(CommandHandler('start', self.help))
         application.add_handler(CommandHandler('stats', self.stats))
         application.add_handler(CommandHandler('resend', self.resend))
-        application.add_handler(CommandHandler(
-            'chat', self.prompt, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP)
-        )
+        application.add_handler(CommandHandler('chat', self.prompt, filters=filters.ChatType.GROUP | filters.ChatType.SUPERGROUP))
         application.add_handler(MessageHandler(
             filters.AUDIO | filters.VOICE | filters.Document.AUDIO |
             filters.VIDEO | filters.VIDEO_NOTE | filters.Document.VIDEO,
             self.transcribe))
-        application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), self.prompt))
+        application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND) | filters.PHOTO, self.prompt))
         application.add_handler(InlineQueryHandler(self.inline_query, chat_types=[
             constants.ChatType.GROUP, constants.ChatType.SUPERGROUP, constants.ChatType.PRIVATE
         ]))
