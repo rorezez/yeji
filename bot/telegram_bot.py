@@ -11,6 +11,7 @@ from telegram import InputTextMessageContent, BotCommand
 from telegram.error import RetryAfter, TimedOut
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, \
     filters, InlineQueryHandler, CallbackQueryHandler, Application, ContextTypes, CallbackContext
+from telegram.ext.filters import filters
 
 from pydub import AudioSegment
 
@@ -455,8 +456,9 @@ class ChatGPTTelegramBot:
         if update.message.photo:
             largest_photo = max(update.message.photo, key=lambda p: p.file_size)
             photo_file = await context.bot.get_file(largest_photo.file_id)
+            caption_text = update.message.caption
             photo_url = photo_file.file_path
-            logging.info(f'Photo URL: {photo_url}')
+            logging.info(f'Photo URL: {photo_url}, Caption: {caption_text}')
         else:
             photo_url = None
 
@@ -877,7 +879,7 @@ class ChatGPTTelegramBot:
             filters.AUDIO | filters.VOICE | filters.Document.AUDIO |
             filters.VIDEO | filters.VIDEO_NOTE | filters.Document.VIDEO,
             self.transcribe))
-        application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND) | filters.PHOTO, self.prompt))
+        application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND) | filters.PHOTO | filter.CAPTION , self.prompt))
         application.add_handler(InlineQueryHandler(self.inline_query, chat_types=[
             constants.ChatType.GROUP, constants.ChatType.SUPERGROUP, constants.ChatType.PRIVATE
         ]))
