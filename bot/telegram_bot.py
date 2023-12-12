@@ -457,6 +457,8 @@ class ChatGPTTelegramBot:
             photo_file = await context.bot.get_file(largest_photo.file_id)
             photo_url = photo_file.file_path
             logging.info(f'Photo URL: {photo_url}')
+        else:
+            photo_url = None
 
 
         logging.info(
