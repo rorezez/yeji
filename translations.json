@@ -383,7 +383,7 @@
         "stats_description": "Mendapatkan statistik penggunaan saat ini",
         "resend_description": "Mengirim kembali pesan terakhir",
         "chat_description": "Berkonversasi dengan bot!",
-        "disallowed": "hai terimakasih sudah menghubungi pintabot,saat ini pintabot sedang mengadakan program beta test yang ke 2 dan maaf kamu belum terdaftar sebagai user beta test yang ke 2, kalau kamu ingin bergabung dan ikut dalam partisipasi silahkan daftar pada link berikut ini https://bit.ly/48gvdp4",
+        "disallowed": "Halo! 👋 Terima kasih telah mengontak Pintabot. 🤖 Saat ini, kami sedang menjalankan gelombang kedua program beta test. Sayangnya, kamu belum terdaftar sebagai user dalam beta test ini. 🙁 Jika kamu tertarik untuk bergabung dan berpartisipasi, yuk daftar sekarang di link ini: https://bit.ly/48gvdp4 🌟",
         "budget_limit": "Maaf, Anda telah mencapai batas penggunaan Anda.",
         "help_text": ["Saya adalah bot ChatGPT, obrolan dengan saya!", "Kirimkan pesan suara atau file dan saya akan mentranskripsinya untuk Anda", "Sumber terbuka di https://github.com/n3d1117/chatgpt-telegram-bot"],
         "stats_conversation": ["Percakapan saat ini", "pesan obrolan dalam riwayat", "token obrolan dalam riwayat"],

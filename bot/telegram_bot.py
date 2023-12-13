@@ -798,9 +798,11 @@ class ChatGPTTelegramBot:
         """
         name = update.inline_query.from_user.name if is_inline else update.message.from_user.name
         user_id = update.inline_query.from_user.id if is_inline else update.message.from_user.id
+        first_name = update.message.from_user.first_name
+        last_name = update.message.from_user.last_name
 
         if not await is_allowed(self.config, update, context, is_inline=is_inline):
-            logging.warning(f'User {name} (id: {user_id}) is not allowed to use the bot')
+            logging.warning(f'User {name} name {first_name} {last_name} (id: {user_id}) adalah user baru')
             await self.send_disallowed_message(update, context, is_inline)
             return False
         if not is_within_budget(self.config, self.usage, update, is_inline=is_inline):
