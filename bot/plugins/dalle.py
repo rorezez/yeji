@@ -33,7 +33,7 @@ class DallePlugin(Plugin):
             openai.api_key = os.getenv("OPENAI_API_KEY")
 
             # Call the OpenAI API to generate the image
-            response = openai.Image.create(
+            response = openai.images.generate(
                 model="dall-e-3",
                 prompt=kwargs["prompt"],
                 size=kwargs.get("size", "1024x1024"),
