@@ -12,3 +12,4 @@ pytube~=15.0.0
 gtts~=2.3.2
 whois~=0.9.27
 beautifulsoup4~=4.10.0
+notion-client~=2.1.0
