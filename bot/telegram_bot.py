@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-
+from notion_client import AsyncClient
 from uuid import uuid4
 from telegram import BotCommandScopeAllGroupChats, Update, constants
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, InlineQueryResultArticle
@@ -20,6 +20,57 @@ from utils import is_group_chat, get_thread_id, message_text, wrap_with_indicato
     cleanup_intermediate_files, split_into_chunks_nostream
 from openai_helper import OpenAIHelper, localized_text
 from usage_tracker import UsageTracker
+from dotenv import load_dotenv
+load_dotenv()
+
+
+notion = AsyncClient(auth=os.environ.get('YOUR_NOTION_API_KEY'))
+
+async def save_to_notion(user_id, username, first_name, last_name):
+    # Replace 'YOUR_DATABASE_ID' dengan ID database Notion Anda
+    database_id = 'a5dae14101f5403f8c1aaaa018ffffbb'
+    new_entry = {
+        "parent": {"database_id": database_id},
+        "properties": {
+            "UserID": {
+                "title": [
+                    {
+                        "text": {
+                            "content": str(user_id)
+                        }
+                    }
+                ]
+            },
+            "Username": {
+                "rich_text": [
+                    {
+                        "text": {
+                            "content": username or ''
+                        }
+                    }
+                ]
+            },
+            "FirstName": {
+                "rich_text": [
+                    {
+                        "text": {
+                            "content": first_name or ''
+                        }
+                    }
+                ]
+            },
+            "LastName": {
+                "rich_text": [
+                    {
+                        "text": {
+                            "content": last_name or ''
+                        }
+                    }
+                ]
+            }
+        }
+    }
+    await notion.pages.create(**new_entry)
 
 
 class ChatGPTTelegramBot:
@@ -846,6 +897,18 @@ class ChatGPTTelegramBot:
         await application.bot.set_my_commands(self.group_commands, scope=BotCommandScopeAllGroupChats())
         await application.bot.set_my_commands(self.commands)
 
+    async def on_user_joined(self,update: Update, context: CallbackContext):
+        # Cek apakah ada anggota baru
+        for member in update.message.new_chat_members:
+            user_id = member.id
+            username = member.username
+            first_name = member.first_name
+            last_name = member.last_name
+
+            # Panggil fungsi untuk menyimpan ke Notion
+            await save_to_notion(user_id, username, first_name, last_name)
+
+
     def run(self):
         """
         Runs the bot indefinitely until the user presses Ctrl+C
@@ -858,6 +921,7 @@ class ChatGPTTelegramBot:
             .concurrent_updates(True) \
             .build()
 
+        application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, self.on_user_joined))
         application.add_handler(CommandHandler('reset', self.reset))
         application.add_handler(CommandHandler('help', self.help))
         application.add_handler(CommandHandler('image', self.image))
