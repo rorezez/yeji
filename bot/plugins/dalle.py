@@ -36,9 +36,6 @@ class DallePlugin(Plugin):
             response = openai.images.generate(
                 model="dall-e-3",
                 prompt=kwargs["prompt"],
-                size=kwargs.get("size", "1024x1024"),
-                quality=kwargs.get("quality", "standard"),
-                n=kwargs.get("n", 1),
             )
 
             # Extract the URL of the generated image
