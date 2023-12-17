@@ -8,7 +8,7 @@ from uuid import uuid4
 from telegram import BotCommandScopeAllGroupChats, Update, constants
 from telegram import InlineKeyboardMarkup, InlineKeyboardButton, InlineQueryResultArticle
 from telegram import InputTextMessageContent, BotCommand
-from telegram.error import RetryAfter, TimedOut
+from telegram.error import RetryAfter, TimedOut ,TelegramError
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, \
     filters, InlineQueryHandler, CallbackQueryHandler, Application, ContextTypes, CallbackContext
 
@@ -256,13 +256,13 @@ class ChatGPTTelegramBot:
         """
         Mengirim pesan ke daftar chat ID.
         """
-        user = update.message.from_user
-        logging.info(f"Received message from {user.name} (ID: {user.id})")
-
-        message_text_to_send = message_text(update.message)
-        for chat_id in self.chat_ids_user:
-            await context.bot.send_message(chat_id=chat_id, text=message_text_to_send)
-            logging.info(f"Sent message to chat ID {chat_id}")
+        message_text_to_send = self.message_text(update.message)
+        for chat_id in self.chat_ids:
+            try:
+                await context.bot.send_message(chat_id=chat_id, text=message_text_to_send)
+                logging.info(f"Successfully sent message to chat ID {chat_id}")
+            except TelegramError as e:
+                logging.warning(f"Failed to send message to chat ID {chat_id}: {e.message}. Skipping to next ID.")
 
     async def reset(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
