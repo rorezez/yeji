@@ -256,7 +256,7 @@ class ChatGPTTelegramBot:
         """
         Mengirim pesan ke daftar chat ID.
         """
-        message_text_to_send = self.message_text(update.message)
+        message_text_to_send = message_text(update.message)
         for chat_id in self.chat_ids:
             try:
                 await context.bot.send_message(chat_id=chat_id, text=message_text_to_send)
