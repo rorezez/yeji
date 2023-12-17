@@ -108,7 +108,7 @@ class ChatGPTTelegramBot:
         self.usage = {}
         self.last_message = {}
         self.inline_queries_cache = {}
-        self.chat_ids_user = [985835416]
+        self.chat_ids_user = [985835416, 1042925492, 1096782769, 1140892993, 1150756478, 1189548051, 1303195755, 1314330141, 1325452960, 1840683823, 6142794666, 6463689474, 6795609356,5595856929,1114027024,5531929314,1171453097]
 
     async def help(self, update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         """
