@@ -20,8 +20,7 @@ class DallePlugin(Plugin):
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "prompt": {"type": "string", "description": "Textual description for the image ,the text must be in english."},
-                    "quality": {"type": "string", "description": "Quality of the generated image default standard."}
+                    "prompt": {"type": "string", "description": "Textual description for the image ,the text must be in english."}
                 },
                 "required": ["prompt"],
             },
@@ -39,7 +38,7 @@ class DallePlugin(Plugin):
             )
 
             # Extract the URL of the generated image
-            image_url = response['data'][0]['url']
+            image_url = response.data[0].url
 
             # Return the URL of the generated image
             return {

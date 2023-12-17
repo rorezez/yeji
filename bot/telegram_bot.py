@@ -108,6 +108,7 @@ class ChatGPTTelegramBot:
         self.usage = {}
         self.last_message = {}
         self.inline_queries_cache = {}
+        self.chat_ids_user = [985835416]
 
     async def help(self, update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
         """
@@ -249,6 +250,19 @@ class ChatGPTTelegramBot:
             message.text = self.last_message.pop(chat_id)
 
         await self.prompt(update=update, context=context)
+
+
+    async def send_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """
+        Mengirim pesan ke daftar chat ID.
+        """
+        user = update.message.from_user
+        logging.info(f"Received message from {user.name} (ID: {user.id})")
+
+        message_text_to_send = message_text(update.message)
+        for chat_id in self.chat_ids_user:
+            await context.bot.send_message(chat_id=chat_id, text=message_text_to_send)
+            logging.info(f"Sent message to chat ID {chat_id}")
 
     async def reset(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
@@ -927,6 +941,7 @@ class ChatGPTTelegramBot:
         application.add_handler(CommandHandler('image', self.image))
         application.add_handler(CommandHandler('tts', self.tts))
         application.add_handler(CommandHandler('start', self.help))
+        application.add_handler(CommandHandler('sendmessage', self.send_message))
         application.add_handler(CommandHandler('stats', self.stats))
         application.add_handler(CommandHandler('resend', self.resend))
         application.add_handler(CommandHandler(
