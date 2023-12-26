@@ -252,6 +252,7 @@ class ChatGPTTelegramBot:
         await self.prompt(update=update, context=context)
 
 
+
     async def send_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         Mengirim pesan ke daftar chat ID.
@@ -261,8 +262,13 @@ class ChatGPTTelegramBot:
             try:
                 await context.bot.send_message(chat_id=chat_id, text=message_text_to_send)
                 logging.info(f"Successfully sent message to chat ID {chat_id}")
+
+                # Memanggil fungsi add_to_history (dengan asumsi telah diubah menjadi publik atau semi-publik)
+                self.openai.add_to_history(chat_id, "assistant", message_text_to_send)
+
             except TelegramError as e:
                 logging.warning(f"Failed to send message to chat ID {chat_id}: {e.message}. Skipping to next ID.")
+
 
     async def reset(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
