@@ -128,6 +128,9 @@ class ChatGPTTelegramBot:
         )
         await update.message.reply_text(help_text, disable_web_page_preview=True)
 
+    async def beta(self, update: Update, _: ContextTypes.DEFAULT_TYPE) -> None:
+        """fitur beta di sini"""
+
     async def stats(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """
         Returns token usage statistics for current day and month.
