@@ -158,6 +158,34 @@ class OpenAIHelper:
 
         return answer, response.usage.total_tokens
 
+    async def get_beta_response(self, chat_id: int, query: str, image_url: str = None) -> tuple[str, str]:
+        try:
+            response = await self.proses_beta_response(chat_id, query, image_url)
+
+            answer = ''
+            if len(response.choices) > 1:
+                for index, choice in enumerate(response.choices):
+                    content = choice.message.content.strip()
+                    if index == 0:
+                        self.add_to_history(chat_id, role="assistant", content=content)
+                    answer += f'{index + 1}\u20e3\n'
+                    answer += content
+                    answer += '\n\n'
+            else:
+                answer = response.choices[0].message.content.strip()
+                self.add_to_history(chat_id, role="assistant", content=answer)
+
+            bot_language = self.config['bot_language']
+            answer += "\n\n---\n" \
+                      f"💰 {str(response.usage.total_tokens)} {localized_text('stats_tokens', bot_language)}" \
+                      f" ({str(response.usage.prompt_tokens)} {localized_text('prompt', bot_language)}," \
+                      f" {str(response.usage.completion_tokens)} {localized_text('completion', bot_language)})"
+
+            return answer, response.usage.total_tokens
+        except Exception as e:
+            logging.error(f"An error occurred in get_beta_response: {str(e)}")
+            return '', '0'
+    
     async def get_chat_response_stream(self, chat_id: int, query: str):
         """
         Stream response from the GPT model.
@@ -195,7 +223,71 @@ class OpenAIHelper:
             answer += f"\n\n---\n🔌 {', '.join(plugin_names)}"
 
         yield answer, tokens_used
+    
+    async def proses_beta_response(self, chat_id: int, query: str, image_url: str) -> tuple[str, str]:
+        """beta fitur manggilnya di sini"""
+        bot_language = self.config['bot_language']
+        try:
+            if chat_id not in self.conversations or self.__max_age_reached(chat_id):
+                self.reset_chat_history(chat_id)
 
+            self.last_updated[chat_id] = datetime.datetime.now()
+
+            self.add_to_history(chat_id, role="user", content=query)
+
+            # Summarize the chat history if it's too long to avoid excessive token usage
+            token_count = self.__count_tokens(self.conversations[chat_id])
+            exceeded_max_tokens = token_count + self.config['max_tokens'] > self.__max_model_tokens()
+            exceeded_max_history_size = len(self.conversations[chat_id]) > self.config['max_history_size']
+
+            if exceeded_max_tokens or exceeded_max_history_size:
+                logging.info(f'Chat history for chat ID {chat_id} is too long. Summarising...')
+                try:
+                    summary = await self.__summarise(self.conversations[chat_id][:-1])
+                    logging.debug(f'Summary: {summary}')
+                    self.reset_chat_history(chat_id, self.conversations[chat_id][0]['content'])
+                    self.add_to_history(chat_id, role="assistant", content=summary)
+                    self.add_to_history(chat_id, role="user", content=query)
+                except Exception as e:
+                    logging.warning(f'Error while summarising chat history: {str(e)}. Popping elements instead...')
+                    self.conversations[chat_id] = self.conversations[chat_id][-self.config['max_history_size']:]
+
+            common_args = {
+                'model': 'gpt-4-vision-preview',
+                'messages': [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": query},
+                            {
+                                "type": "image_url",
+                                "image_url": {
+                                    "url": image_url,
+                                },
+                            },
+                        ],
+                    }
+                ],
+                'temperature': self.config['temperature'],
+                'n': self.config['n_choices'],
+                'max_tokens': self.config['max_tokens'],
+                'presence_penalty': self.config['presence_penalty'],
+                'frequency_penalty': self.config['frequency_penalty'],
+                'stream': True
+            }
+            logging.info("Current conversations:")
+            logging.info(json.dumps(self.conversations, indent=4))
+            return await self.client.chat.completions.create(**common_args)
+
+        except openai.RateLimitError as e:
+            raise e
+
+        except openai.BadRequestError as e:
+            raise Exception(f"⚠️ _{localized_text('openai_invalid', bot_language)}._ ⚠️\n{str(e)}") from e
+
+        except Exception as e:
+            raise Exception(f"⚠️ _{localized_text('error', bot_language)}._ ⚠️\n{str(e)}") from e
+        
     @retry(
         reraise=True,
         retry=retry_if_exception_type(openai.RateLimitError),
